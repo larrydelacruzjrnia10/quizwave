@@ -1,0 +1,42 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    name: SSH Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          # Abort the whole script on any error
+          script_stop: true
+          script: |
+            echo "==> Pulling latest code"
+            cd ${{ secrets.VPS_PATH }}
+            git pull origin master
+
+            echo "==> Installing dependencies"
+            npm run install:all
+
+            echo "==> Running database migrations"
+            cd server
+            npx prisma migrate deploy
+            cd ..
+
+            echo "==> Building frontend"
+            npm run build
+
+            echo "==> Restarting server"
+            pm2 restart quizwave || pm2 start server/src/index.js --name quizwave
+            pm2 save
+
+            echo "==> Done"
