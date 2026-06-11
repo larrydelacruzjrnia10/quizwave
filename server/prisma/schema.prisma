@@ -1,0 +1,73 @@
+// To switch to MySQL:
+//   1. Change provider below to "mysql"
+//   2. Change DATABASE_URL in .env to a MySQL connection string
+//   3. Run: npx prisma migrate dev
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Teacher {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  quizzes      Quiz[]
+}
+
+model Quiz {
+  id           Int           @id @default(autoincrement())
+  title        String
+  description  String?
+  teacher      Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId    Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  questions    Question[]
+  gameSessions GameSession[]
+}
+
+model Question {
+  id           Int      @id @default(autoincrement())
+  quiz         Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizId       Int
+  text         String
+  options      Json     // String[] — 2 to 4 items
+  correctIndex Int      // 0-based index into options
+  explanation  String?
+  timeLimit    Int      @default(30) // seconds
+  orderIndex   Int
+}
+
+model GameSession {
+  id            Int            @id @default(autoincrement())
+  quiz          Quiz           @relation(fields: [quizId], references: [id])
+  quizId        Int
+  joinCode      String         @unique // 6-char uppercase
+  status        GameStatus     @default(LOBBY)
+  startedAt     DateTime?
+  endedAt       DateTime?
+  playerResults PlayerResult[]
+}
+
+enum GameStatus {
+  LOBBY
+  ACTIVE
+  FINISHED
+}
+
+model PlayerResult {
+  id            Int         @id @default(autoincrement())
+  gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+  gameSessionId Int
+  email         String
+  displayName   String      // part of email before @
+  score         Int
+  rank          Int
+  answers       Json        // [{questionIndex, chosenIndex, correct, points, responseMs}]
+}
